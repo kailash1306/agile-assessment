@@ -9,27 +9,28 @@ pipeline {
     stages {
         stage('Checkout') {
             steps {
-                checkout scm
+                git branch: 'main', url: 'https://github.com/kailash1306/agile-assessment.git'
             }
         }
 
         stage('Parallel Checks') {
             steps {
                 script {
-                    def parallelStart = System.currentTimeMillis()
+                    def startedAt = System.currentTimeMillis()
 
                     parallel(
                         frontend: {
-                            sh 'python3 frontend_check.py'
+                            sh 'python frontend.py'
                         },
                         backend: {
-                            sh 'python3 backend_check.py'
+                            sh 'python backend.py'
                         }
                     )
 
-                    def parallelSeconds = (System.currentTimeMillis() - parallelStart) / 1000.0
-                    echo "Parallel checks completed in approximately ${parallelSeconds} seconds."
-                    echo 'Expected runtime: about 4 seconds plus Jenkins startup overhead; serial execution would take about 8 seconds.'
+                    def elapsedSeconds = (System.currentTimeMillis() - startedAt) / 1000.0
+                    echo "Parallel checks completed in approximately ${elapsedSeconds} seconds."
+                    echo 'Expected parallel time: about 4 seconds plus Jenkins overhead.'
+                    echo 'Expected serial time: about 8 seconds plus Jenkins overhead (4 seconds per script).'
                 }
             }
         }
@@ -37,8 +38,9 @@ pipeline {
         stage('Archive Reports') {
             steps {
                 archiveArtifacts artifacts: 'frontend_report.txt,backend_report.txt', fingerprint: true
-                echo "Archived reports for build ${env.BUILD_NUMBER}."
-                echo 'Previous builds retain their own archived reports. After a newer build completes, open the older build and use its Artifacts section to download its reports.'
+                echo "Archived frontend_report.txt and backend_report.txt for build ${env.BUILD_NUMBER}."
+                echo 'To verify retention: run a newer build, then open the older build and its Artifacts section.'
+                echo 'Because artifactNumToKeepStr is 10, older build reports remain available until that retention limit is reached .'
             }
         }
     }
