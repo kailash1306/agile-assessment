@@ -1,0 +1,45 @@
+pipeline {
+    agent any
+
+    options {
+        timestamps()
+        buildDiscarder(logRotator(numToKeepStr: '10', artifactNumToKeepStr: '10'))
+    }
+
+    stages {
+        stage('Checkout') {
+            steps {
+                checkout scm
+            }
+        }
+
+        stage('Parallel Checks') {
+            steps {
+                script {
+                    def parallelStart = System.currentTimeMillis()
+
+                    parallel(
+                        frontend: {
+                            sh 'python3 frontend_check.py'
+                        },
+                        backend: {
+                            sh 'python3 backend_check.py'
+                        }
+                    )
+
+                    def parallelSeconds = (System.currentTimeMillis() - parallelStart) / 1000.0
+                    echo "Parallel checks completed in approximately ${parallelSeconds} seconds."
+                    echo 'Expected runtime: about 4 seconds plus Jenkins startup overhead; serial execution would take about 8 seconds.'
+                }
+            }
+        }
+
+        stage('Archive Reports') {
+            steps {
+                archiveArtifacts artifacts: 'frontend_report.txt,backend_report.txt', fingerprint: true
+                echo "Archived reports for build ${env.BUILD_NUMBER}."
+                echo 'Previous builds retain their own archived reports. After a newer build completes, open the older build and use its Artifacts section to download its reports.'
+            }
+        }
+    }
+}
